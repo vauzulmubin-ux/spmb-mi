@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPMB MI Roudlotul Muta'abbidin - Seleksi Penerimaan Murid Baru</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: linear-gradient(135deg, #064e3b 0%, #10b981 50%, #dc2626 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .sidebar-item.active { 
+            background-color: #dc2626; 
+            color: white; 
+            box-shadow: 0 10px 15px -3px rgba(220, 38, 38, 0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(to right, #059669, #10b981);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(to right, #dc2626, #ef4444);
+            transition: all 0.3s ease;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .status-proses { background: #fef3c7; color: #92400e; }
+        .status-diterima { background: #d1fae5; color: #065f46; }
+        .status-ditolak { background: #fee2e2; color: #991b1b; }
+
+        #content { 
+            animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
+        .institute-title {
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body class="text-slate-900 overflow-x-hidden">
+    <!-- Loading Screen -->
+    <div id="loading" class="loading-overlay">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+            <div class="animate-spin text-emerald-600">
+                <i data-lucide="refresh-cw" class="w-10 h-10"></i>
+            </div>
+            <p class="font-bold text-emerald-900">Menghubungkan ke Database Cloud...</p>
+        </div>
+    </div>
+
+    <div id="app" class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-72 glass-panel border-r border-white/20 hidden flex-col transition-all duration-300 z-20">
+            <div class="p-8">
+                <div class="flex items-center gap-3">
+                    <div class="bg-red-600 p-2.5 rounded-2xl text-white shadow-lg">
+                        <i data-lucide="school" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight block leading-none text-emerald-900">SPMB</span>
+                        <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-tight block mt-1">MI Roudlotul Muta'abbidin</span>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 space-y-2">
+                <button onclick="navigate('admin-dashboard')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-emerald-900 font-semibold hover:bg-white/50 transition-all active" id="nav-admin-dashboard">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard Cloud
+                </button>
+                <button onclick="navigate('admin-data')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-emerald-900 font-semibold hover:bg-white/50 transition-all" id="nav-admin-data">
+                    <i data-lucide="table-properties" class="w-5 h-5"></i> Sinkron Spreadsheet
+                </button>
+                <div class="pt-6 pb-2 px-4">
+                    <hr class="border-emerald-100">
+                </div>
+                <button onclick="handleLogout()" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-red-600 font-bold hover:bg-red-50 transition-all">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Keluar Panel
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col max-h-screen overflow-hidden relative">
+            <header class="glass-panel border-b border-white/20 p-4 sticky top-0 z-10 flex justify-between items-center px-8 mx-6 mt-4 rounded-2xl shadow-lg">
+                <div class="flex items-center gap-4">
+                    <button id="menu-toggle" class="md:hidden p-2 text-emerald-900">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                    <h2 id="page-title" class="text-lg font-bold text-emerald-900 tracking-tight">Portal SPMB Online</h2>
+                </div>
+                <div id="user-info" class="flex items-center gap-4"></div>
+            </header>
+
+            <div id="content" class="flex-1 overflow-y-auto p-6 md:p-10"></div>
+
+            <!-- Footer Alamat -->
+            <footer class="bg-white/50 backdrop-blur-md py-6 px-10 text-center border-t border-emerald-100">
+                <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="text-left">
+                        <h4 class="font-black text-emerald-900 text-sm">MI Roudlotul Muta'abbidin</h4>
+                        <p class="text-[11px] text-emerald-700 font-medium max-w-sm">
+                            Jl. Raya Jati No. 123, Desa Jati, Kec. Sidoarjo, Kabupaten Sidoarjo, Jawa Timur 61234
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-100 rounded-lg text-emerald-600"><i data-lucide="mail" class="w-4 h-4"></i></div>
+                        <div class="p-2 bg-emerald-100 rounded-lg text-emerald-600"><i data-lucide="phone" class="w-4 h-4"></i></div>
+                        <div class="p-2 bg-emerald-100 rounded-lg text-emerald-600"><i data-lucide="globe" class="w-4 h-4"></i></div>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Modal Login -->
+    <div id="login-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-8 opacity-10">
+                <i data-lucide="lock" class="w-24 h-24"></i>
+            </div>
+            <h3 class="text-3xl font-black text-emerald-900 mb-2">Login Panitia</h3>
+            <p class="text-sm text-slate-500 mb-8">Masukkan kredensial khusus administrator</p>
+            
+            <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Username</label>
+                    <input type="text" id="login-user" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl outline-none focus:border-red-500 font-bold transition-all">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Password</label>
+                    <input type="password" id="login-pass" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl outline-none focus:border-red-500 font-bold transition-all">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeLoginModal()" class="flex-1 py-4 font-bold text-slate-400 hover:text-slate-600">Batal</button>
+                    <button type="submit" class="flex-[2] btn-danger text-white py-4 rounded-2xl font-black shadow-lg">MASUK PANEL</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- KONFIGURASI ---
+        const SCRIPT_URL = ""; 
+        const ADMIN_CREDENTIALS = {
+            username: "admin_roudlotul",
+            password: "spmb_roudlotul_2024"
+        };
+
+        let appMode = 'pendaftar'; 
+        let currentView = 'pendaftar-home';
+        let isLoggedIn = false;
+        
+        let state = {
+            pendaftar: JSON.parse(localStorage.getItem('spbm_pendaftar')) || []
+        };
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
+
+        // --- AUTH LOGIC ---
+        function openLoginModal() {
+            document.getElementById('login-modal').style.display = 'flex';
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+        }
+
+        function handleLoginSubmit(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+
+            if (user === ADMIN_CREDENTIALS.username && pass === ADMIN_CREDENTIALS.password) {
+                isLoggedIn = true;
+                closeLoginModal();
+                switchMode('admin');
+            } else {
+                alert("Username atau Password Salah!");
+            }
+        }
+
+        function handleLogout() {
+            isLoggedIn = false;
+            switchMode('pendaftar');
+        }
+
+        async function syncWithCloud() {
+            if (!SCRIPT_URL) return;
+            showLoading(true);
+            try {
+                const response = await fetch(SCRIPT_URL + "?action=read");
+                const data = await response.json();
+                state.pendaftar = data;
+                saveState();
+                render();
+            } catch (error) {
+                console.error("Gagal sinkron:", error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('spbm_pendaftar', JSON.stringify(state.pendaftar));
+        }
+
+        function refreshIcons() {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function switchMode(mode) {
+            if (mode === 'admin' && !isLoggedIn) {
+                openLoginModal();
+                return;
+            }
+
+            appMode = mode;
+            const sidebar = document.getElementById('sidebar');
+            if (mode === 'admin') {
+                sidebar.classList.remove('hidden');
+                sidebar.classList.add('flex');
+                navigate('admin-dashboard');
+            } else {
+                sidebar.classList.add('hidden');
+                sidebar.classList.remove('flex');
+                navigate('pendaftar-home');
+            }
+        }
+
+        function navigate(view) {
+            currentView = view;
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            const activeNav = document.getElementById(`nav-${view}`);
+            if (activeNav) activeNav.classList.add('active');
+
+            const titles = {
+                'pendaftar-home': 'SPMB MI Roudlotul Muta\'abbidin',
+                'pendaftar-form': 'Formulir Pendaftaran Siswa Baru',
+                'pendaftar-cek': 'Cek Status Pendaftaran Murid',
+                'admin-dashboard': 'Ringkasan Data SPMB Cloud',
+                'admin-data': 'Manajemen Database Murid'
+            };
+            document.getElementById('page-title').innerText = titles[view] || 'SPMB Online';
+            
+            render();
+            updateHeader();
+        }
+
+        function updateHeader() {
+            const headerInfo = document.getElementById('user-info');
+            if (appMode === 'admin') {
+                headerInfo.innerHTML = `
+                    <button onclick="syncWithCloud()" class="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all mr-2" title="Refresh Database">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    </button>
+                    <div class="h-10 w-10 bg-red-600 rounded-full flex items-center justify-center text-white font-bold border-2 border-white shadow-md">A</div>
+                `;
+            } else {
+                headerInfo.innerHTML = `
+                    <button onclick="switchMode('admin')" class="flex items-center gap-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-5 py-2.5 rounded-xl shadow-lg transition-all">
+                        <i data-lucide="lock" class="w-4 h-4"></i> Login Panitia
+                    </button>
+                `;
+            }
+            refreshIcons();
+        }
+
+        // --- VIEWS ---
+        function renderPendaftarHome() {
+            return `
+                <div class="max-w-4xl mx-auto py-10">
+                    <div class="glass-panel p-10 md:p-16 rounded-[3rem] shadow-2xl text-center space-y-8 mb-10 border border-white/50">
+                        <div class="inline-flex items-center gap-2 px-5 py-2 bg-emerald-100 text-emerald-700 rounded-full text-[11px] font-black uppercase tracking-[0.2em] border border-emerald-200">
+                            Penerimaan Murid Baru 2026/2027
+                        </div>
+                        <h1 class="text-4xl md:text-6xl font-black text-emerald-900 leading-[1.1] tracking-tight">
+                            Selamat Datang di <br><span class="text-red-600">MI Roudlotul Muta'abbidin</span>
+                        </h1>
+                        <p class="text-slate-600 max-w-2xl mx-auto text-lg leading-relaxed font-medium">
+                            Sistem Seleksi Penerimaan Murid Baru (SPMB) Online. <br>
+                            Mewujudkan generasi yang Berilmu, Beriman, dan Bertaqwa.
+                        </p>
+                        <div class="flex flex-col sm:flex-row gap-4 justify-center pt-6">
+                            <button onclick="navigate('pendaftar-form')" class="btn-primary text-white px-10 py-5 rounded-2xl font-black text-lg shadow-xl flex items-center justify-center gap-3">
+                                <i data-lucide="user-plus" class="w-6 h-6"></i> DAFTAR SEKARANG
+                            </button>
+                            <button onclick="navigate('pendaftar-cek')" class="bg-white text-red-600 border-2 border-red-600 px-10 py-5 rounded-2xl font-black text-lg hover:bg-red-50 transition-all flex items-center justify-center gap-3">
+                                <i data-lucide="search" class="w-6 h-6"></i> LIHAT HASIL SELEKSI
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPendaftarForm() {
+            return `
+                <div class="max-w-3xl mx-auto glass-panel p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/50">
+                    <div class="flex items-center gap-4 mb-10">
+                        <button onclick="navigate('pendaftar-home')" class="p-3 bg-red-50 text-red-600 rounded-2xl">
+                            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        </button>
+                        <div>
+                            <h3 class="text-2xl font-black text-emerald-900 institute-title">Formulir SPMB Online</h3>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Lengkapi data MI Roudlotul Muta'abbidin</p>
+                        </div>
+                    </div>
+                    <form onsubmit="handleRegistration(event)" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Nama Lengkap Murid (Sesuai Akta)*</label>
+                            <input type="text" id="reg-nama" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold uppercase transition-all shadow-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Jenis Kelamin*</label>
+                            <select id="reg-jk" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                                <option value="" disabled selected>Pilih Jenis Kelamin</option>
+                                <option value="Laki-laki">Laki-laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">NIK (Sesuai KK)*</label>
+                            <input type="text" id="reg-nik" required maxlength="16" class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">NISN (Jika Ada)*</label>
+                            <input type="text" id="reg-nisn" required maxlength="10" class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Sekolah Asal (TK/RA)*</label>
+                            <input type="text" id="reg-asal" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Alamat Lengkap Siswa*</label>
+                            <textarea id="reg-alamat" required rows="2" class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm" placeholder="Contoh: Jl. Mawar No. 12, RT.01/RW.02, Desa Jati"></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">No. WhatsApp Wali*</label>
+                            <input type="tel" id="reg-hp" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Nama Ayah Kandung*</label>
+                            <input type="text" id="reg-ayah" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Nama Ibu Kandung*</label>
+                            <input type="text" id="reg-ibu" required class="w-full p-4 bg-white border-2 border-emerald-50 rounded-2xl focus:border-red-500 outline-none font-bold transition-all shadow-sm">
+                        </div>
+                        <button type="submit" class="md:col-span-2 btn-danger text-white py-5 rounded-2xl font-black text-lg shadow-xl mt-4 flex items-center justify-center gap-3">
+                            <i data-lucide="send" class="w-5 h-5"></i> SUBMIT DATA PENDAFTARAN
+                        </button>
+                    </form>
+                </div>
+            `;
+        }
+
+        function renderPendaftarCek() {
+            return `
+                <div class="max-w-2xl mx-auto py-10">
+                    <div class="glass-panel p-12 rounded-[3rem] shadow-2xl text-center border border-white/50">
+                        <h3 class="text-2xl font-black text-emerald-900 mb-2">Cek Status SPMB</h3>
+                        <p class="text-sm text-slate-500 mb-8">MI Roudlotul Muta'abbidin</p>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="cek-query" placeholder="Masukkan NIK Murid" class="flex-1 p-5 bg-white border-2 border-emerald-50 rounded-2xl outline-none focus:border-red-500 font-bold shadow-sm">
+                            <button onclick="handleCheckStatus()" class="btn-danger text-white px-8 py-5 rounded-2xl font-black shadow-lg">CARI DATA</button>
+                        </div>
+                    </div>
+                    <div id="cek-result" class="mt-8"></div>
+                </div>
+            `;
+        }
+
+        function renderAdminDashboard() {
+            const stats = {
+                total: state.pendaftar.length,
+                diterima: state.pendaftar.filter(p => p.status === 'Diterima').length,
+                proses: state.pendaftar.filter(p => p.status === 'Proses').length
+            };
+            return `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div class="glass-panel p-8 rounded-3xl border-l-8 border-emerald-500 shadow-lg">
+                        <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total Pendaftar SPMB</p>
+                        <h2 class="text-4xl font-black text-emerald-900">${stats.total}</h2>
+                    </div>
+                    <div class="glass-panel p-8 rounded-3xl border-l-8 border-red-600 shadow-lg">
+                        <p class="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Sudah Diterima</p>
+                        <h2 class="text-4xl font-black text-red-600">${stats.diterima}</h2>
+                    </div>
+                    <div class="glass-panel p-8 rounded-3xl border-l-8 border-orange-400 shadow-lg">
+                        <p class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Sedang Proses</p>
+                        <h2 class="text-4xl font-black text-orange-400">${stats.proses}</h2>
+                    </div>
+                </div>
+                <div class="glass-panel p-8 rounded-[2rem] text-center border border-white/50">
+                    <div class="bg-emerald-100 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
+                        <i data-lucide="info" class="w-6 h-6"></i>
+                    </div>
+                    <h4 class="font-black text-emerald-900 mb-2">Manajemen Seleksi Murid Baru</h4>
+                    <p class="text-sm text-slate-500 max-w-lg mx-auto">Sistem Terintegrasi MI Roudlotul Muta'abbidin. Pastikan Anda melakukan sinkronisasi data secara berkala untuk update terbaru pendaftar.</p>
+                </div>
+            `;
+        }
+
+        function renderAdminData() {
+            return `
+                <div class="glass-panel rounded-[2.5rem] shadow-xl overflow-hidden border border-white/50">
+                    <div class="p-8 border-b border-emerald-50 flex flex-col md:flex-row justify-between items-center bg-white/50 gap-4">
+                        <div>
+                            <h4 class="text-xl font-black text-emerald-900">Database Murid Baru</h4>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sistem SPMB Cloud Terintegrasi</p>
+                        </div>
+                        <button onclick="syncWithCloud()" class="btn-primary text-white px-6 py-3 rounded-xl font-black flex items-center gap-2 shadow-lg">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> TARIK DATA TERBARU
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-emerald-50/50 text-[10px] font-black text-emerald-700 uppercase tracking-widest">
+                                <tr>
+                                    <th class="px-8 py-5">Nama Lengkap</th>
+                                    <th class="px-8 py-5">Identitas</th>
+                                    <th class="px-8 py-5">Ayah & Ibu</th>
+                                    <th class="px-8 py-5">Alamat</th>
+                                    <th class="px-8 py-5">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-emerald-50">
+                                ${state.pendaftar.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-slate-400 font-bold italic">Belum ada data murid masuk.</td></tr>' : 
+                                  state.pendaftar.map(p => `
+                                    <tr class="hover:bg-white/80 transition-all">
+                                        <td class="px-8 py-5">
+                                            <p class="font-black text-emerald-900 text-sm uppercase">${p.nama}</p>
+                                            <p class="text-[9px] font-bold text-red-600 mt-0.5">${p.noReg}</p>
+                                        </td>
+                                        <td class="px-8 py-5 text-xs text-slate-600 font-bold">
+                                            <span class="text-emerald-700">${p.jk}</span><br>
+                                            <span class="text-slate-400">${p.nik}</span>
+                                        </td>
+                                        <td class="px-8 py-5 text-[11px] text-slate-600 font-bold leading-tight">
+                                            A: <span class="text-emerald-800 uppercase">${p.ayah || '-'}</span><br>
+                                            I: <span class="text-red-800 uppercase">${p.ibu || '-'}</span>
+                                        </td>
+                                        <td class="px-8 py-5 text-[11px] text-slate-500 font-medium max-w-[150px] truncate" title="${p.alamat || '-'}">
+                                            ${p.alamat || '-'}
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- REGISTER LOGIC ---
+        async function handleRegistration(e) {
+            e.preventDefault();
+            const noReg = 'SPMB-' + Math.floor(Math.random() * 9000 + 1000);
+            const data = {
+                noReg: noReg,
+                nama: document.getElementById('reg-nama').value.toUpperCase(),
+                jk: document.getElementById('reg-jk').value,
+                nik: document.getElementById('reg-nik').value,
+                nisn: document.getElementById('reg-nisn').value,
+                asal: document.getElementById('reg-asal').value.toUpperCase(),
+                alamat: document.getElementById('reg-alamat').value,
+                hp: document.getElementById('reg-hp').value,
+                ayah: document.getElementById('reg-ayah').value.toUpperCase(),
+                ibu: document.getElementById('reg-ibu').value.toUpperCase(),
+                status: 'Proses',
+                tglDaftar: new Date().toLocaleDateString('id-ID')
+            };
+
+            showLoading(true);
+
+            if (SCRIPT_URL) {
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } catch (err) { console.error("Cloud Error:", err); }
+            }
+
+            state.pendaftar.push(data);
+            saveState();
+            
+            showLoading(false);
+            alert(`Pendaftaran Berhasil!\n\nID MURID: ${noReg}\nNama: ${data.nama}\n\nSilakan simpan ID ini untuk pengecekan status secara berkala.`);
+            navigate('pendaftar-home');
+        }
+
+        function handleCheckStatus() {
+            const query = document.getElementById('cek-query').value.toUpperCase();
+            const resultDiv = document.getElementById('cek-result');
+            const match = state.pendaftar.find(p => p.nik === query || p.noReg.toUpperCase() === query);
+
+            if (match) {
+                resultDiv.innerHTML = `
+                    <div class="glass-panel p-10 rounded-[3rem] border-4 border-emerald-500 text-center space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
+                        <p class="text-[11px] font-black text-emerald-600 uppercase tracking-[0.2em]">Hasil Seleksi SPMB:</p>
+                        <h4 class="text-3xl font-black text-emerald-900">${match.nama}</h4>
+                        <div class="flex flex-col gap-1 items-center">
+                            <span class="text-xs font-bold text-slate-500">${match.jk}</span>
+                            <div class="text-[10px] text-emerald-700 font-bold uppercase mt-1">
+                                Ayah: ${match.ayah} | Ibu: ${match.ibu}
+                            </div>
+                            <p class="text-[11px] text-slate-400 font-medium px-10 leading-tight italic mt-2">"${match.alamat || 'Alamat tidak terdata'}"</p>
+                        </div>
+                        <div class="py-4 px-8 rounded-2xl inline-block status-badge status-${match.status.toLowerCase()} !text-base tracking-widest">
+                            ${match.status.toUpperCase()}
+                        </div>
+                        <p class="text-xs text-slate-500 font-medium pt-2">MI Roudlotul Muta'abbidin - Teruslah Belajar & Berdoa.</p>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `<div class="glass-panel p-10 rounded-3xl text-center text-red-600 font-black border border-red-100 shadow-lg">DATA TIDAK DITEMUKAN. PASTIKAN NIK/NOMOR REGISTRASI BENAR.</div>`;
+            }
+            refreshIcons();
+        }
+
+        function render() {
+            const container = document.getElementById('content');
+            if (!container) return;
+            switch(currentView) {
+                case 'pendaftar-home': container.innerHTML = renderPendaftarHome(); break;
+                case 'pendaftar-form': container.innerHTML = renderPendaftarForm(); break;
+                case 'pendaftar-cek': container.innerHTML = renderPendaftarCek(); break;
+                case 'admin-dashboard': container.innerHTML = renderAdminDashboard(); break;
+                case 'admin-data': container.innerHTML = renderAdminData(); break;
+            }
+            refreshIcons();
+        }
+
+        window.onload = () => { 
+            render(); 
+            updateHeader();
+            if(SCRIPT_URL) syncWithCloud();
+        };
+    </script>
+</body>
+</html>
